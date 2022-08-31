@@ -6,7 +6,7 @@ from starkware.cairo.common.uint256 import Uint256
 
 from openzeppelin.token.erc721.IERC721 import IERC721
 
-from src.main import AuctionData
+from src.data import AuctionData
 
 namespace data_helpers:
     func assert_auctions_equal(auction_a: AuctionData, auction_b: AuctionData):

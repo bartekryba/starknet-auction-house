@@ -1,5 +1,5 @@
 %lang starknet
-from starkware.cairo.common.math import assert_nn, assert_le
+from starkware.cairo.common.math import assert_nn, assert_le, assert_lt
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.hash import hash2
@@ -12,20 +12,16 @@ from starkware.starknet.common.syscalls import (
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 
-from src.vault import Vault
-
-struct Bid:
-    member amount : Uint256
-    member address : felt
-end
-
-struct AuctionData:
-    member seller : felt
-    member asset_id : Uint256
-    member min_bid_increment : Uint256
-    member erc20_address : felt
-    member erc721_address : felt
-end
+from src.data import (
+    AuctionData,
+    Bid,
+    assert_bid_initialized,
+    assert_auction_initialized,
+    assert_last_block_initialized,
+    is_bid_initialized,
+)
+from src.constants import AUCTION_PROLONGATION_ON_BID
+from src.vault import vault
 
 @storage_var
 func auctions(auction_id : felt) -> (auction : AuctionData):
@@ -46,6 +42,8 @@ func get_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 ) -> (auction : AuctionData):
     let (auction) = auctions.read(auction_id)
 
+    assert_auction_initialized(auction)
+
     return (auction)
 end
 
@@ -53,7 +51,10 @@ end
 func get_auction_highest_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     auction_id : felt
 ) -> (highest_bid : Bid):
+    alloc_locals
     let (highest_bid) = auction_highest_bid.read(auction_id)
+
+    assert_bid_initialized(highest_bid)
 
     return (highest_bid)
 end
@@ -64,19 +65,23 @@ func get_auction_last_block{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
 ) -> (end_block : felt):
     let (end_block) = auction_last_block.read(auction_id)
 
+    assert_last_block_initialized(end_block)
+
     return (end_block)
 end
 
 @view
-func is_active_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func is_auction_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     auction_id : felt
 ) -> (active : felt):
     alloc_locals
 
-    let (end_block) = auction_last_block.read(auction_id)
+    let (last_block) = auction_last_block.read(auction_id)
+    assert_last_block_initialized(last_block)
+
     let (current_block) = get_block_number()
 
-    let (active) = is_le(current_block, end_block)
+    let (active) = is_le(current_block, last_block)
 
     return (active)
 end
@@ -84,19 +89,11 @@ end
 func assert_active_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     auction_id : felt
 ):
-    let (active) = is_active_auction(auction_id)
+    let (active) = is_auction_active(auction_id)
 
-    assert active = 1
-
-    return ()
-end
-
-func assert_inactive_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    auction_id : felt
-):
-    let (active) = is_active_auction(auction_id)
-
-    assert active = 0
+    with_attr error_message("Auction is not active"):
+        assert active = 1
+    end
 
     return ()
 end
@@ -129,32 +126,9 @@ func create_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     let end_block = current_block + lifetime
     auction_last_block.write(auction_id, end_block)
 
-    Vault.deposit_asset(erc721_address, asset_id, seller)
+    vault.deposit_asset(erc721_address, asset_id, seller)
 
     return (auction_id)
-end
-
-func secure_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : Bid, erc20_address):
-    let (current_address) = get_contract_address()
-
-    let (result) = IERC20.transferFrom(
-        contract_address=erc20_address,
-        sender=bid.address,
-        recipient=current_address,
-        amount=bid.amount,
-    )
-
-    assert result = 1
-    return ()
-end
-
-func return_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : Bid, erc20_address):
-    let (result) = IERC20.transfer(
-        contract_address=erc20_address, recipient=bid.address, amount=bid.amount
-    )
-
-    assert result = 1
-    return ()
 end
 
 func verify_outbid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id : felt, old_bid: Bid, new_bid: Bid):
@@ -176,7 +150,7 @@ func verify_outbid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     return ()
 end
 
-func prolong_auction_if_needed{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id):
+func prolong_auction_on_end{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id):
     alloc_locals
 
     let (current_block) = get_block_number()
@@ -184,15 +158,19 @@ func prolong_auction_if_needed{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
 
     let diff = end_block - current_block
 
-    let (should_prolong) = is_le(diff, 10)
+    let (should_prolong) = is_le(diff, AUCTION_PROLONGATION_ON_BID)
 
     if should_prolong == 1:
-        let append = 10 - diff
-        let new_end_block = end_block + append
+        let new_last_block = end_block + AUCTION_PROLONGATION_ON_BID
 
-        auction_last_block.write(auction_id, new_end_block)
-
-        return ()
+        auction_last_block.write(auction_id, new_last_block)
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+    else:
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
     end
 
     return ()
@@ -205,7 +183,7 @@ func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     alloc_locals
 
     let (caller_address) = get_caller_address()
-    let (old_bid) = get_auction_highest_bid(auction_id)
+    let (old_bid) = auction_highest_bid.read(auction_id)
 
     let new_bid = Bid(amount=amount, address=caller_address)
 
@@ -214,16 +192,27 @@ func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 
     auction_highest_bid.write(auction_id, new_bid)
 
-    secure_bid(new_bid, auction.erc20_address)
-    return_bid(old_bid, auction.erc20_address)
+    prolong_auction_on_end(auction_id)
 
-    prolong_auction_if_needed(auction_id)
+    vault.deposit_bid(auction.erc20_address, new_bid)
+    let (previous_bid_exists) = is_bid_initialized(old_bid)
+
+    if previous_bid_exists == 1:
+        vault.transfer_bid(auction.erc20_address, old_bid, old_bid.address)
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+    else:
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+    end
 
     return ()
 end
 
 @external
-func close_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func finalize_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     auction_id : felt
 ):
     alloc_locals
@@ -231,17 +220,25 @@ func close_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let (current_block) = get_block_number()
     let (end_block) = get_auction_last_block(auction_id)
 
-    assert_le(end_block + 1, current_block)
+    with_attr error_message("Auction is still active"):
+        assert_lt(end_block, current_block)
+    end
 
     let (auction) = get_auction(auction_id)
 
-    let (winning_bid) = get_auction_highest_bid(auction_id)
+    let (winning_bid) = auction_highest_bid.read(auction_id)
 
-    IERC20.transfer(
-        contract_address=auction.erc20_address, recipient=auction.seller, amount=winning_bid.amount
-    )
+    let (has_bid) = is_bid_initialized(winning_bid)
 
-    #AssetVault.change_owner(auction.seller, winning_bid.address, auction.asset_id)
+    if has_bid == 1:
+        # Seller get the money
+        vault.transfer_bid(auction.erc20_address, winning_bid, auction.seller)
+        # Buyer gets the asset
+        vault.transfer_asset(auction.erc721_address, auction.asset_id, winning_bid.address)
+    else:
+        # Seller gets the asset back
+        vault.transfer_asset(auction.erc721_address, auction.asset_id, auction.seller)
+    end
 
     return ()
 end

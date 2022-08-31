@@ -4,8 +4,11 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
 from starkware.starknet.common.syscalls import get_contract_address, get_caller_address
 from openzeppelin.token.erc721.IERC721 import IERC721
+from openzeppelin.token.erc20.IERC20 import IERC20
+from src.data import Bid
 
-namespace Vault:
+
+namespace vault:
     func deposit_asset{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         erc721_address: felt, asset_id : Uint256, source: felt,
     ):
@@ -21,14 +24,50 @@ namespace Vault:
         return ()
     end
 
-    # todo
-    #funcc withdraw_asset{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    #    erc721_address: felt, asset_id : felt, target: felt
-    #):
-    #    let (current_address) = get_contract_address()
-    #    let (caller_address) = get_caller_address()
-    #    let (erc721_address) = get_erc721_address()
-    #
-    #    return ()
-    #end
+    func transfer_asset{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        erc721_address: felt, asset_id : Uint256, target: felt
+    ):
+        let (address) = get_contract_address()
+
+        IERC721.transferFrom(
+            contract_address=erc721_address,
+            from_=address,
+            to=target,
+            tokenId=asset_id,
+        )
+
+        return ()
+    end
+
+    func deposit_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        erc20_address: felt, bid : Bid
+    ):
+        let (address) = get_contract_address()
+
+        let (result) = IERC20.transferFrom(
+            contract_address=erc20_address,
+            sender=bid.address,
+            recipient=address,
+            amount=bid.amount,
+        )
+
+        return ()
+    end
+
+    # Transfer tokens sent with a bid to target address.
+    # In practice it is either seller (as payment for the asset) or the bidder (after a higher bid is placed).
+    func transfer_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        erc20_address: felt, bid : Bid, target_address: felt
+    ):
+        let (address) = get_contract_address()
+
+        let (result) = IERC20.transferFrom(
+            contract_address=erc20_address,
+            sender=address,
+            recipient=target_address,
+            amount=bid.amount,
+        )
+
+        return ()
+    end
 end
