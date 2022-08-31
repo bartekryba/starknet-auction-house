@@ -3,44 +3,47 @@ from starkware.cairo.common.math import assert_nn, assert_le
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.hash import hash2
+from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add
 from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_block_number,
     get_contract_address,
 )
 
-from src.protocols.erc20 import IERC20
-from src.token import get_erc20_address
-from src.asset_vault.library import AssetVault
+from openzeppelin.token.erc20.IERC20 import IERC20
+
+from src.vault import Vault
 
 struct Bid:
-    member amount : felt
+    member amount : Uint256
     member address : felt
 end
 
-struct Auction:
-    member id : felt
-    member issuer : felt
-    member asset : felt
-    member min_bid_increment : felt
+struct AuctionData:
+    member seller : felt
+    member asset_id : Uint256
+    member min_bid_increment : Uint256
+    member erc20_address : felt
+    member erc721_address : felt
 end
 
 @storage_var
-func auctions(auction_id : felt) -> (auction : Auction):
+func auctions(auction_id : felt) -> (auction : AuctionData):
 end
 
 @storage_var
 func auction_highest_bid(auction_id : felt) -> (highest_bid : Bid):
 end
 
+# Last block when sale is active
 @storage_var
-func auction_end_block(auction_id : felt) -> (end_block : felt):
+func auction_last_block(auction_id : felt) -> (end_block : felt):
 end
 
 @view
 func get_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     auction_id : felt
-) -> (auction : Auction):
+) -> (auction : AuctionData):
     let (auction) = auctions.read(auction_id)
 
     return (auction)
@@ -56,10 +59,10 @@ func get_auction_highest_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
 end
 
 @view
-func get_auction_end_block{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func get_auction_last_block{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     auction_id : felt
 ) -> (end_block : felt):
-    let (end_block) = auction_end_block.read(auction_id)
+    let (end_block) = auction_last_block.read(auction_id)
 
     return (end_block)
 end
@@ -70,7 +73,7 @@ func is_active_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
 ) -> (active : felt):
     alloc_locals
 
-    let (end_block) = auction_end_block.read(auction_id)
+    let (end_block) = auction_last_block.read(auction_id)
     let (current_block) = get_block_number()
 
     let (active) = is_le(current_block, end_block)
@@ -100,34 +103,38 @@ end
 
 @external
 func create_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    asset_id : felt, min_bid_increment : felt, lifetime : felt
+    auction_id: felt,
+    asset_id : Uint256,
+    min_bid_increment : Uint256,
+    erc20_address : felt,
+    erc721_address : felt,
+    lifetime : felt,
 ) -> (auction_id : felt):
     alloc_locals
 
-    let (caller_address) = get_caller_address()
-    let (auction_id) = hash2{hash_ptr=pedersen_ptr}(x=caller_address, y=asset_id)
+    let (seller) = get_caller_address()
 
-    assert_inactive_auction(auction_id)
-    AssetVault.assert_has_available_asset(caller_address, asset_id)
+    # TODO: Make sure auction doesn't exist yet
 
-    let auction = Auction(
-        id=auction_id, issuer=caller_address, asset=asset_id, min_bid_increment=min_bid_increment
+    let auction = AuctionData(
+        seller=seller,
+        asset_id=asset_id,
+        min_bid_increment=min_bid_increment,
+        erc20_address=erc20_address,
+        erc721_address=erc721_address,
     )
     auctions.write(auction_id, auction)
 
     let (current_block) = get_block_number()
     let end_block = current_block + lifetime
-    auction_end_block.write(auction_id, end_block)
+    auction_last_block.write(auction_id, end_block)
 
-    auction_highest_bid.write(auction_id, Bid(0, 0))
-
-    AssetVault.lock_asset(caller_address, asset_id)
+    Vault.deposit_asset(erc721_address, asset_id, seller)
 
     return (auction_id)
 end
 
-func secure_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : Bid):
-    let (erc20_address) = get_erc20_address()
+func secure_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : Bid, erc20_address):
     let (current_address) = get_contract_address()
 
     let (result) = IERC20.transferFrom(
@@ -141,9 +148,7 @@ func secure_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     return ()
 end
 
-func return_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : Bid):
-    let (erc20_address) = get_erc20_address()
-
+func return_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(bid : Bid, erc20_address):
     let (result) = IERC20.transfer(
         contract_address=erc20_address, recipient=bid.address, amount=bid.amount
     )
@@ -153,10 +158,20 @@ func return_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
 end
 
 func verify_outbid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id : felt, old_bid: Bid, new_bid: Bid):
+    alloc_locals # explain why it is needed
     let (auction) = get_auction(auction_id)
-    let min_bid = old_bid.amount + auction.min_bid_increment
+    let (min_bid, carry) = uint256_add(old_bid.amount, auction.min_bid_increment)
 
-    assert_le(min_bid, new_bid.amount)
+    # Should never happen in normal case
+    with_attr error_message("Overflow in min_bid"):
+        assert carry = 0
+    end
+
+    let (higher_than_minimum) = uint256_le(min_bid, new_bid.amount)
+
+    with_attr error_message("New bid too low"):
+        assert higher_than_minimum = 1
+    end
 
     return ()
 end
@@ -165,7 +180,7 @@ func prolong_auction_if_needed{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
     alloc_locals
 
     let (current_block) = get_block_number()
-    let (end_block) = get_auction_end_block(auction_id)
+    let (end_block) = get_auction_last_block(auction_id)
 
     let diff = end_block - current_block
 
@@ -175,7 +190,7 @@ func prolong_auction_if_needed{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
         let append = 10 - diff
         let new_end_block = end_block + append
 
-        auction_end_block.write(auction_id, new_end_block)
+        auction_last_block.write(auction_id, new_end_block)
 
         return ()
     end
@@ -185,21 +200,22 @@ end
 
 @external
 func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    auction_id : felt, price : felt
+    auction_id : felt, amount : Uint256
 ):
     alloc_locals
 
     let (caller_address) = get_caller_address()
     let (old_bid) = get_auction_highest_bid(auction_id)
 
-    let new_bid = Bid(amount=price, address=caller_address)
+    let new_bid = Bid(amount=amount, address=caller_address)
 
+    let (auction) = auctions.read(auction_id)
     verify_outbid(auction_id, old_bid, new_bid)
 
     auction_highest_bid.write(auction_id, new_bid)
 
-    secure_bid(new_bid)
-    return_bid(old_bid)
+    secure_bid(new_bid, auction.erc20_address)
+    return_bid(old_bid, auction.erc20_address)
 
     prolong_auction_if_needed(auction_id)
 
@@ -213,20 +229,19 @@ func close_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     alloc_locals
 
     let (current_block) = get_block_number()
-    let (end_block) = get_auction_end_block(auction_id)
+    let (end_block) = get_auction_last_block(auction_id)
 
     assert_le(end_block + 1, current_block)
 
     let (auction) = get_auction(auction_id)
-    let (erc20_address) = get_erc20_address()
 
     let (winning_bid) = get_auction_highest_bid(auction_id)
 
     IERC20.transfer(
-        contract_address=erc20_address, recipient=auction.issuer, amount=winning_bid.amount
+        contract_address=auction.erc20_address, recipient=auction.seller, amount=winning_bid.amount
     )
 
-    AssetVault.change_owner(auction.issuer, winning_bid.address, auction.asset)
+    #AssetVault.change_owner(auction.seller, winning_bid.address, auction.asset_id)
 
     return ()
 end
