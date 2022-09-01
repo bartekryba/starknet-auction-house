@@ -16,9 +16,6 @@ from openzeppelin.token.erc20.IERC20 import IERC20
 from src.data import (
     AuctionData,
     Bid,
-    assert_bid_initialized,
-    assert_auction_initialized,
-    assert_last_block_initialized,
     is_bid_initialized,
 )
 from src.constants import AUCTION_PROLONGATION_ON_BID
@@ -28,7 +25,11 @@ from src.assertions import (
     assert_auction_does_not_exist,
     assert_address,
     assert_min_bid_increment,
-    assert_lifetime
+    assert_lifetime,
+    assert_bid_initialized,
+    assert_auction_initialized,
+    assert_last_block_initialized,
+    assert_auction_not_finalized,
 )
 from src.storage import (
     auctions,
@@ -87,13 +88,25 @@ func is_auction_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     return (active)
 end
 
-func assert_active_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func assert_auction_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     auction_id : felt
 ):
     let (active) = is_auction_active(auction_id)
 
     with_attr error_message("Auction is not active"):
         assert active = 1
+    end
+
+    return ()
+end
+
+func assert_auction_not_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    auction_id : felt
+):
+    let (active) = is_auction_active(auction_id)
+
+    with_attr error_message("Auction is still active"):
+        assert active = 0
     end
 
     return ()
@@ -187,7 +200,7 @@ func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 ):
     alloc_locals
 
-    assert_active_auction(auction_id)
+    assert_auction_active(auction_id)
 
     let (caller_address) = get_caller_address()
     let (old_bid) = auction_highest_bid.read(auction_id)
@@ -229,17 +242,8 @@ func finalize_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
 ):
     alloc_locals
 
-    let (current_block) = get_block_number()
-    let (end_block) = get_auction_last_block(auction_id)
-
-    with_attr error_message("Auction is still active"):
-        assert_lt(end_block, current_block)
-    end
-
-    let (is_finalized) = finalized_auctions.read(auction_id)
-    with_attr error_message("Auction is already finalized"):
-        assert is_finalized = 0
-    end
+    assert_auction_not_active(auction_id)
+    assert_auction_not_finalized(auction_id)
 
     # It is important to do it BEFORE transferring assets, otherwise malicious ERC721 might
     # call finalize_auction multiple times during transfer.

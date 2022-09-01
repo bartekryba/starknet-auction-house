@@ -16,20 +16,6 @@ struct AuctionData:
     member erc721_address : felt
 end
 
-func assert_auction_initialized(auction: AuctionData):
-    with_attr error_message("Auction was not initalized"):
-        assert_not_zero(auction.seller)
-    end
-    return ()
-end
-
-func assert_bid_initialized(bid: Bid):
-    let (initialized) = is_bid_initialized(bid)
-    with_attr error_message("Bid was not initialized"):
-        assert initialized = 0
-    end
-    return ()
-end
 
 func is_bid_initialized(bid: Bid) -> (result: felt):
     # Initialized bid can't have address == 0
@@ -38,11 +24,4 @@ func is_bid_initialized(bid: Bid) -> (result: felt):
     else:
         return (1)
     end
-end
-
-func assert_last_block_initialized(end_block: felt):
-    with_attr error_message("Last block was not initialized"):
-        assert_not_zero(end_block)
-    end
-    return ()
 end

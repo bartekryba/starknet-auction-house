@@ -9,6 +9,11 @@ from src.storage import (
     auction_highest_bid,
     auction_last_block
 )
+from src.data import (
+    AuctionData,
+    Bid,
+    is_bid_initialized,
+)
 
 func assert_auction_does_not_exist{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id):
     alloc_locals
@@ -55,5 +60,39 @@ func assert_lifetime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         assert_nn(lifetime)
     end
 
+    return ()
+end
+
+func assert_auction_initialized(auction: AuctionData):
+    with_attr error_message("Auction was not initalized"):
+        assert_not_zero(auction.seller)
+    end
+    return ()
+end
+
+func assert_bid_initialized(bid: Bid):
+    let (initialized) = is_bid_initialized(bid)
+    with_attr error_message("Bid was not initialized"):
+        assert initialized = 1
+    end
+    return ()
+end
+
+func assert_last_block_initialized(end_block: felt):
+    with_attr error_message("Last block was not initialized"):
+        assert_not_zero(end_block)
+    end
+    return ()
+end
+
+func assert_auction_not_finalized{
+    syscall_ptr: felt*,
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}(auction_id):
+    let (is_finalized) = finalized_auctions.read(auction_id)
+    with_attr error_message("Auction is already finalized"):
+        assert is_finalized = 0
+    end
     return ()
 end
