@@ -1,5 +1,5 @@
 %lang starknet
-from starkware.cairo.common.math import assert_nn, assert_le, assert_lt
+from starkware.cairo.common.math import assert_lt
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.hash import hash2
@@ -22,23 +22,19 @@ from src.data import (
 )
 from src.constants import AUCTION_PROLONGATION_ON_BID
 from src.vault import vault
-
-@storage_var
-func auctions(auction_id : felt) -> (auction : AuctionData):
-end
-
-@storage_var
-func finalized_auctions(auction_id : felt) -> (is_closed: felt):
-end
-
-@storage_var
-func auction_highest_bid(auction_id : felt) -> (highest_bid : Bid):
-end
-
-# Last block when sale is active
-@storage_var
-func auction_last_block(auction_id : felt) -> (end_block : felt):
-end
+from src.events import auction_created, bid_placed, auction_finalized
+from src.assertions import (
+    assert_auction_does_not_exist,
+    assert_address,
+    assert_min_bid_increment,
+    assert_lifetime
+)
+from src.storage import (
+    auctions,
+    finalized_auctions,
+    auction_highest_bid,
+    auction_last_block
+)
 
 @view
 func get_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -115,7 +111,11 @@ func create_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
 
     let (seller) = get_caller_address()
 
-    # TODO: Make sure auction doesn't exist yet
+    assert_auction_does_not_exist(auction_id)
+    assert_address(erc20_address)
+    assert_address(erc721_address)
+    assert_min_bid_increment(min_bid_increment)
+    assert_lifetime(lifetime)
 
     let auction = AuctionData(
         seller=seller,
@@ -131,6 +131,13 @@ func create_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     auction_last_block.write(auction_id, end_block)
 
     vault.deposit_asset(erc721_address, asset_id, seller)
+
+    auction_created.emit(
+        auction_id=auction_id,
+        asset_id=asset_id,
+        min_bid_increment=min_bid_increment,
+        lifetime=lifetime
+    )
 
     return (auction_id)
 end
@@ -212,6 +219,11 @@ func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
         tempvar range_check_ptr = range_check_ptr
     end
 
+    bid_placed.emit(
+        auction_id=auction_id,
+        amount=amount
+    )
+
     return ()
 end
 
@@ -252,6 +264,10 @@ func finalize_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
         # Seller gets the asset back
         vault.transfer_asset(auction.erc721_address, auction.asset_id, auction.seller)
     end
+
+    auction_finalized.emit(
+        auction_id=auction_id
+    )
 
     return ()
 end
