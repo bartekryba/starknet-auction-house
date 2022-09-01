@@ -1,9 +1,9 @@
 %lang starknet
-from starkware.cairo.common.math import assert_nn, assert_le, assert_lt, assert_not_zero
+from starkware.cairo.common.math import assert_lt
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.hash import hash2
-from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt
+from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add
 from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_block_number,
@@ -23,23 +23,18 @@ from src.data import (
 from src.constants import AUCTION_PROLONGATION_ON_BID
 from src.vault import vault
 from src.events import auction_created, bid_placed, auction_finalized
-
-@storage_var
-func auctions(auction_id : felt) -> (auction : AuctionData):
-end
-
-@storage_var
-func finalized_auctions(auction_id : felt) -> (is_closed: felt):
-end
-
-@storage_var
-func auction_highest_bid(auction_id : felt) -> (highest_bid : Bid):
-end
-
-# Last block when sale is active
-@storage_var
-func auction_last_block(auction_id : felt) -> (end_block : felt):
-end
+from src.assertions import (
+    assert_auction_does_not_exist,
+    assert_address,
+    assert_min_bid_increment,
+    assert_lifetime
+)
+from src.storage import (
+    auctions,
+    finalized_auctions,
+    auction_highest_bid,
+    auction_last_block
+)
 
 @view
 func get_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -116,11 +111,11 @@ func create_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
 
     let (seller) = get_caller_address()
 
-    verify_auction_does_not_exist(auction_id)
-    verify_address(erc20_address)
-    verify_address(erc721_address)
-    verify_min_bid_increment(min_bid_increment)
-    verify_lifetime(lifetime)
+    assert_auction_does_not_exist(auction_id)
+    assert_address(erc20_address)
+    assert_address(erc721_address)
+    assert_min_bid_increment(min_bid_increment)
+    assert_lifetime(lifetime)
 
     let auction = AuctionData(
         seller=seller,
@@ -187,54 +182,6 @@ func prolong_auction_on_end{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
         tempvar syscall_ptr = syscall_ptr
         tempvar pedersen_ptr = pedersen_ptr
         tempvar range_check_ptr = range_check_ptr
-    end
-
-    return ()
-end
-
-func verify_auction_does_not_exist{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id):
-    alloc_locals
-
-    with_attr error_message(
-        "Auction {auction_id} already exists!"
-    ):
-        let (existing_auction) = auctions.read(auction_id)
-        assert existing_auction.seller = 0
-        assert existing_auction.asset_id = Uint256(0, 0)
-    end
-
-    return ()
-end
-
-func verify_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address):
-    with_attr error_message(
-        "Invalid address {address}"
-    ):
-        assert_not_zero(address)
-    end
-
-    return ()
-end
-
-func verify_min_bid_increment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        min_bid_increment : Uint256
-    ):
-    with_attr error_message(
-        "Invalid minimal value for bid, has to be >= 0"
-    ):
-        let (value) = uint256_lt(Uint256(1, 0), min_bid_increment)
-        assert value = 1
-    end
-
-    return ()
-end
-
-func verify_lifetime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lifetime):
-    with_attr error_message(
-        "Invalid lifetime, has to be >= 0"
-    ):
-        assert_not_zero(lifetime)
-        assert_nn(lifetime)
     end
 
     return ()
