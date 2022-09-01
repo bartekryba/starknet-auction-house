@@ -42,12 +42,15 @@ namespace vault:
     func deposit_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         erc20_address: felt, bid : Bid
     ):
-        let (address) = get_contract_address()
+        let (auction_contract_address) = get_contract_address()
 
+        let low = bid.amount.low
+        let high = bid.amount.high
+        let address = bid.address
         let (result) = IERC20.transferFrom(
             contract_address=erc20_address,
             sender=bid.address,
-            recipient=address,
+            recipient=auction_contract_address,
             amount=bid.amount,
         )
 
@@ -61,9 +64,8 @@ namespace vault:
     ):
         let (address) = get_contract_address()
 
-        let (result) = IERC20.transferFrom(
+        let (result) = IERC20.transfer(
             contract_address=erc20_address,
-            sender=address,
             recipient=target_address,
             amount=bid.amount,
         )

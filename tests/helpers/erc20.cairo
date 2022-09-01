@@ -2,14 +2,22 @@
 
 from starkware.cairo.common.math import split_felt, unsigned_div_rem
 from starkware.starknet.common.syscalls import get_caller_address
+from starkware.starknet.common.syscalls import get_contract_address
+from starkware.cairo.common.uint256 import Uint256
+
+from openzeppelin.token.erc20.IERC20 import IERC20
+
+const ADMIN = 'erc20_admin'
 
 namespace erc20_helpers:
-    func assert_address_balance(address: felt, balance: felt):
-        %{
-           stored = load(context.erc20_address, "ERC20_balances", "Uint256", key=[ids.address])
-           as_int = stored[0] + stored[1]*2**128
-           assert as_int == ids.balance, f"Address {ids.address} balance {as_int} != {ids.balance}"
-        %}
+    func assert_address_balance{syscall_ptr: felt*, range_check_ptr}(address: felt, balance: felt):
+        let (erc20_address) = get_address()
+        let (state) = IERC20.balanceOf(
+            contract_address=erc20_address,
+            account=address,
+        )
+        assert balance = state.low
+        assert 0 = state.high
         return ()
     end
 
@@ -19,11 +27,32 @@ namespace erc20_helpers:
         return ()
     end
 
+    # Approves control over an amount of tokens for our contract for bidding
+    func approve_for_bid{syscall_ptr: felt*, range_check_ptr}(address: felt, amount: felt):
+        alloc_locals
+        let (erc20_address) = get_address()
+        let (contract_address) = get_contract_address()
+        %{ end_prank = start_prank(ids.address, ids.erc20_address) %}
+        IERC20.approve(
+            contract_address=erc20_address,
+            spender=contract_address,
+            amount=Uint256(amount, 0),
+        )
+        %{ end_prank() %}
+        return ()
+    end
 
-    func top_up_address{range_check_ptr}(address: felt, amount: felt):
-        # Storage saves balance as Uint256, so we need to split our amount into two 128bit integers
-        let (high, low) = split_felt(amount)
-        %{ store(context.erc20_address, "ERC20_balances", [ids.low, ids.high], key=[ids.address]) %}
+    func top_up_address{syscall_ptr: felt*, range_check_ptr}(address: felt, amount: felt):
+        alloc_locals
+        let (local erc20_address) = get_address()
+
+        %{ stop = start_prank(ids.ADMIN, ids.erc20_address) %}
+        IERC20.transfer(
+            contract_address=erc20_address,
+            recipient=address,
+            amount=Uint256(amount, 0),
+        )
+        %{ stop() %}
         return ()
     end
 
@@ -40,7 +69,7 @@ namespace erc20_helpers:
         %{
             context.erc20_address = deploy_contract(
                 "./lib/cairo_contracts/src/openzeppelin/token/erc20/presets/ERC20.cairo",
-                [0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 10**20, 10**20, ids.ADMIN],
             ).contract_address
         %}
         return ()

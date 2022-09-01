@@ -157,16 +157,14 @@ end
 func prolong_auction_on_end{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id):
     alloc_locals
 
-    let (current_block) = get_block_number()
-    let (end_block) = get_auction_last_block(auction_id)
+    let (local current_block) = get_block_number()
+    let (local end_block) = get_auction_last_block(auction_id)
 
-    let diff = end_block - current_block
+    local diff = end_block - current_block
 
     let (should_prolong) = is_le(diff, AUCTION_PROLONGATION_ON_BID)
-
     if should_prolong == 1:
         let new_last_block = end_block + AUCTION_PROLONGATION_ON_BID
-
         auction_last_block.write(auction_id, new_last_block)
         tempvar syscall_ptr = syscall_ptr
         tempvar pedersen_ptr = pedersen_ptr
@@ -185,6 +183,8 @@ func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     auction_id : felt, amount : Uint256
 ):
     alloc_locals
+
+    # TODO: make sure auction is still active
 
     let (caller_address) = get_caller_address()
     let (old_bid) = auction_highest_bid.read(auction_id)
