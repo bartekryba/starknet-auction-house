@@ -102,6 +102,8 @@ func test_two_bids{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let (is_closed) = finalized_auctions.read(AUCTION_ID)
     assert 1 = is_closed
 
+    %{ print("Congrats, contract seems to work properly! 🎉🎉🎉") %}
+
     return ()
 end
 

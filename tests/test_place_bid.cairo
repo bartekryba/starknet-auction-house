@@ -33,7 +33,7 @@ func test_placed_bid_happy_case{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*
         expect_events({"name": "bid_placed", "data": [ids.AUCTION_ID, 100, 0]})
     %}
 
-    auction_helpers.created_auction(minimal_bid, end_block)
+    auction_helpers.create_auction(minimal_bid, end_block)
     auction_helpers.topped_bid(AUCTION_ID, BUYER_1, 100)
 
     let (current_last_block) = auction_last_block.read(AUCTION_ID)
@@ -57,7 +57,7 @@ func test_placed_bid_happy_case_with_previous_bid{syscall_ptr : felt*, pedersen_
         expect_events({"name": "bid_placed", "data": [ids.AUCTION_ID, 200, 0]})
     %}
 
-    auction_helpers.created_auction(minimal_bid, end_block)
+    auction_helpers.create_auction(minimal_bid, end_block)
     auction_helpers.topped_bid(AUCTION_ID, BUYER_1, 100)
 
     %{ roll(ids.end_block) %}
@@ -81,7 +81,7 @@ func test_placed_bid_not_enough_funds{syscall_ptr : felt*, pedersen_ptr : HashBu
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
 
-    auction_helpers.created_auction(minimal_bid, end_block)
+    auction_helpers.create_auction(minimal_bid, end_block)
     %{ start_prank(ids.BUYER_1) %}
     %{ expect_revert(error_message="ERC20: insufficient allowance") %}
     place_bid(AUCTION_ID, minimal_bid)
@@ -96,8 +96,8 @@ func test_placed_bid_too_low{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
     let amount = 99
     let end_block = 100
 
-    auction_helpers.transfer_funds(BUYER_1, amount)
-    auction_helpers.created_auction(minimal_bid, end_block)
+    auction_helpers.prepare_topped_bid(BUYER_1, amount)
+    auction_helpers.create_auction(minimal_bid, end_block)
     %{ start_prank(ids.BUYER_1) %}
     %{ expect_revert(error_message="New bid too low") %}
     place_bid(AUCTION_ID, Uint256(99, 0))
@@ -112,9 +112,9 @@ func test_placed_bid_lower_than_highest{syscall_ptr : felt*, pedersen_ptr : Hash
     let buyer_balance = 100
     let end_block = 100
 
-    auction_helpers.transfer_funds(BUYER_1, buyer_balance)
-    auction_helpers.transfer_funds(BUYER_2, buyer_balance)
-    auction_helpers.created_auction(minimal_bid, end_block)
+    auction_helpers.prepare_topped_bid(BUYER_1, buyer_balance)
+    auction_helpers.prepare_topped_bid(BUYER_2, buyer_balance)
+    auction_helpers.create_auction(minimal_bid, end_block)
     %{ end_prank = start_prank(ids.BUYER_1) %}
     place_bid(AUCTION_ID, minimal_bid)
     %{ end_prank() %}
@@ -133,8 +133,8 @@ func test_placed_bid_auction_inactive{syscall_ptr : felt*, pedersen_ptr : HashBu
     let amount = 100
     let end_block = 100
 
-    auction_helpers.transfer_funds(BUYER_1, amount)
-    auction_helpers.created_auction(minimal_bid, end_block)
+    auction_helpers.prepare_topped_bid(BUYER_1, amount)
+    auction_helpers.create_auction(minimal_bid, end_block)
     
     %{ roll(ids.end_block + 1) %}
 

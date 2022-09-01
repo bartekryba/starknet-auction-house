@@ -28,7 +28,7 @@ func test_finalize_happy_case_no_bids{syscall_ptr : felt*, pedersen_ptr : HashBu
         expect_events({"name": "auction_finalized", "data": [ids.AUCTION_ID]})
     %}
 
-    auction_helpers.created_auction(minimal_bid, end_block)
+    auction_helpers.create_auction(minimal_bid, end_block)
     %{ roll(ids.end_block + 1) %}
     finalize_auction(AUCTION_ID)
 
@@ -55,7 +55,7 @@ func test_finalize_happy_case_with_bids{syscall_ptr : felt*, pedersen_ptr : Hash
         expect_events({"name": "auction_finalized", "data": [ids.AUCTION_ID]})
     %}
 
-    auction_helpers.created_auction(minimal_bid, end_block)
+    auction_helpers.create_auction(minimal_bid, end_block)
     auction_helpers.topped_bid(AUCTION_ID, BUYER_1, amount)
 
     erc20_helpers.assert_address_balance(SELLER, 0)
@@ -81,12 +81,13 @@ func test_finalize_still_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
 
-    auction_helpers.created_auction(minimal_bid, end_block)
-    %{ expect_revert(error_message="Auction is still active") %}
-    finalize_auction(AUCTION_ID)
+    auction_helpers.create_auction(minimal_bid, end_block)
 
     let (auction_status) = finalized_auctions.read(AUCTION_ID)
     assert auction_status = 0
+
+    %{ expect_revert(error_message="Auction is still active") %}
+    finalize_auction(AUCTION_ID)
 
     return ()
 end
@@ -97,15 +98,15 @@ func test_finalize_already_finalized{syscall_ptr : felt*, pedersen_ptr : HashBui
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
 
-    auction_helpers.created_auction(minimal_bid, end_block)
+    auction_helpers.create_auction(minimal_bid, end_block)
     %{ roll(ids.end_block + 1) %}
-    finalize_auction(AUCTION_ID)
-
-    %{ expect_revert(error_message="Auction is already finalized") %}
     finalize_auction(AUCTION_ID)
 
     let (auction_status) = finalized_auctions.read(AUCTION_ID)
     assert auction_status = 1
+
+    %{ expect_revert(error_message="Auction is already finalized") %}
+    finalize_auction(AUCTION_ID)
 
     return ()
 end

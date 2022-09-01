@@ -33,9 +33,7 @@ namespace auction_helpers:
         alloc_locals
         let (auction_contract_address) = get_contract_address()
 
-        erc20_helpers.top_up_address(user_address, amount)
-        erc20_helpers.assert_address_balance(user_address, amount)
-        erc20_helpers.approve_for_bid(user_address, amount)
+        prepare_topped_bid(user_address, amount)
 
         %{ end_prank = start_prank(ids.user_address) %}
         place_bid(auction_id, Uint256(amount, 0))
@@ -47,7 +45,7 @@ namespace auction_helpers:
         return ()
     end
 
-    func created_auction{
+    func create_auction{
         syscall_ptr: felt*,
         range_check_ptr,
         pedersen_ptr : HashBuiltin*
@@ -82,7 +80,7 @@ namespace auction_helpers:
         return()
     end
 
-    func transfer_funds{
+    func prepare_topped_bid{
         syscall_ptr: felt*,
         range_check_ptr,
         pedersen_ptr : HashBuiltin*
