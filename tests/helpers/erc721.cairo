@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.math import split_felt, unsigned_div_rem
-from starkware.starknet.common.syscalls import get_caller_address
+from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 from starkware.cairo.common.uint256 import Uint256
 
 from openzeppelin.token.erc721.IERC721 import IERC721
@@ -16,10 +16,22 @@ const INITIAL_OWNER = 'initial_owner'
 
 namespace erc721_helpers:
 
+    # Approves control over a token for the contract
+    func approve_for_auction{syscall_ptr: felt*, range_check_ptr}(token_id: Uint256):
+        let (erc721_address) = get_address()
+        let (address) = get_contract_address()
+        IERC721.approve(
+            contract_address=erc721_address,
+            approved=address,
+            tokenId=token_id,
+        )
+        return ()
+    end
+
+    # Makes sure address owns the token
     func assert_has_token{syscall_ptr: felt*, range_check_ptr}(address: felt, token_id: Uint256):
         alloc_locals
-        tempvar erc721_address
-        %{ ids.erc721_address = context.erc721_address %}
+        let (erc721_address) = get_address()
         let (owner) = IERC721.ownerOf(
             contract_address=erc721_address,
             tokenId=token_id,

@@ -28,6 +28,10 @@ func auctions(auction_id : felt) -> (auction : AuctionData):
 end
 
 @storage_var
+func finalized_auctions(auction_id : felt) -> (is_closed: felt):
+end
+
+@storage_var
 func auction_highest_bid(auction_id : felt) -> (highest_bid : Bid):
 end
 
@@ -224,6 +228,15 @@ func finalize_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
         assert_lt(end_block, current_block)
     end
 
+    let (is_finalized) = finalized_auctions.read(auction_id)
+    with_attr error_message("Auction is already finalized"):
+        assert is_finalized = 0
+    end
+
+    # It is important to do it BEFORE transferring assets, otherwise malicious ERC721 might
+    # call finalize_auction multiple times during transfer.
+    finalized_auctions.write(auction_id, 1)
+
     let (auction) = get_auction(auction_id)
 
     let (winning_bid) = auction_highest_bid.read(auction_id)
@@ -231,7 +244,7 @@ func finalize_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
     let (has_bid) = is_bid_initialized(winning_bid)
 
     if has_bid == 1:
-        # Seller get the money
+        # Seller gets the money
         vault.transfer_bid(auction.erc20_address, winning_bid, auction.seller)
         # Buyer gets the asset
         vault.transfer_asset(auction.erc721_address, auction.asset_id, winning_bid.address)

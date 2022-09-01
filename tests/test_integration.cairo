@@ -15,7 +15,12 @@ from src.main import create_auction, AuctionData, auctions, auction_last_block
 from tests.helpers.erc721 import erc721_helpers
 from tests.helpers.data import data_helpers
 from tests.helpers.erc20 import erc20_helpers
-from tests.helpers.constants import SELLER, AUCTION_ID
+from tests.helpers.constants import (
+    SELLER,
+    AUCTION_ID,
+    BUYER_1,
+    BUYER_2,
+)
 
 @external
 func test_auction_created{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
@@ -24,9 +29,9 @@ func test_auction_created{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     let (current_block_number) = get_block_number()
     let auction_lifetime = 100 # in blocks
     let token_id = Uint256(0,1)
-    let (erc20_address) = erc20_helpers.get_address()
+    let (local erc20_address) = erc20_helpers.get_address()
     let (local erc721_address) = erc721_helpers.get_address()
-    let expected_auction = AuctionData(
+    local expected_auction: AuctionData = AuctionData(
         seller=SELLER,
         asset_id=token_id,
         min_bid_increment=Uint256(100, 0),
@@ -35,20 +40,18 @@ func test_auction_created{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     )
     erc721_helpers.mint(SELLER, token_id)
 
-    %{ end_prank = start_prank(ids.SELLER, ids.erc721_address) %}
+    %{ start_prank(ids.SELLER, ids.erc721_address) %}
     erc721_helpers.approve_for_auction(token_id)
-    %{ end_prank() %}
 
-    %{ end_prank = start_prank(ids.SELLER) %}
+    %{ start_prank(ids.SELLER) %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = expected_auction.asset_id,
-        min_bid_increment = expected_auction.min_bid_increment,
-        erc20_address = expected_auction.erc20_address,
-        erc721_address = expected_auction.erc721_address,
-        lifetime = auction_lifetime,
+        asset_id=expected_auction.asset_id,
+        min_bid_increment=expected_auction.min_bid_increment,
+        erc20_address=expected_auction.erc20_address,
+        erc721_address=expected_auction.erc721_address,
+        lifetime=auction_lifetime,
     )
-    %{ end_prank() %}
 
     let (saved_auction) = auctions.read(AUCTION_ID)
     data_helpers.assert_auctions_equal(expected_auction, saved_auction)
@@ -57,6 +60,14 @@ func test_auction_created{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
 
     let (end_block) = auction_last_block.read(AUCTION_ID)
     assert auction_lifetime + current_block_number = end_block
+
+    let last_block = auction_lifetime + current_block_number
+    %{ warp(ids.last_block) %}
+
+    %{ start_prank(ids.BUYER_1, ids.erc20_address) %}
+    erc20_helpers.top_up(1000)
+
+    #TODO
 
     return ()
 end
