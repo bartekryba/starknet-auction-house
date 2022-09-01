@@ -214,9 +214,7 @@ func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 
     prolong_auction_on_end(auction_id)
 
-    vault.deposit_bid(auction.erc20_address, new_bid)
     let (previous_bid_exists) = is_bid_initialized(old_bid)
-
     if previous_bid_exists == 1:
         vault.transfer_bid(auction.erc20_address, old_bid, old_bid.address)
         tempvar syscall_ptr = syscall_ptr
@@ -227,6 +225,8 @@ func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
         tempvar pedersen_ptr = pedersen_ptr
         tempvar range_check_ptr = range_check_ptr
     end
+
+    vault.deposit_bid(auction.erc20_address, new_bid)
 
     bid_placed.emit(
         auction_id=auction_id,

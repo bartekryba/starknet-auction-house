@@ -1,6 +1,7 @@
 %lang starknet
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
+from starkware.starknet.common.syscalls import get_contract_address
 
 from src.main import place_bid
 from src.storage import auction_last_block, auction_highest_bid, finalized_auctions
@@ -71,6 +72,46 @@ func test_placed_bid_happy_case_with_previous_bid{syscall_ptr : felt*, pedersen_
     assert current_highest_bid.address = BUYER_2
 
     erc20_helpers.assert_address_balance(BUYER_1, 100)
+
+    return()
+end
+
+# In this case user places two bids: one with half of money owned and then with all money owned.
+# It will fail if old bid is returned _after_ securing new bid.
+@external
+func test_user_placing_two_bids_in_a_row{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+    alloc_locals
+    let (auction_contract_address) = get_contract_address()
+    let minimal_bid = Uint256(50, 0)
+    let end_block = 100
+    let amount = 200
+
+    auction_helpers.create_auction(minimal_bid, end_block)
+
+    %{
+        expect_events({"name": "bid_placed", "data": [ids.AUCTION_ID, 200, 0]})
+        expect_events({"name": "bid_placed", "data": [ids.AUCTION_ID, 400, 0]})
+    %}
+
+    erc20_helpers.top_up_address(BUYER_1, 2*amount)
+    erc20_helpers.assert_address_balance(BUYER_1, 2*amount)
+
+    erc20_helpers.approve_for_bid(BUYER_1, amount)
+
+    # First bid placed
+    %{ end_prank = start_prank(ids.BUYER_1) %}
+    place_bid(AUCTION_ID, Uint256(amount, 0))
+    %{ end_prank() %}
+
+    erc20_helpers.approve_for_bid(BUYER_1, 2*amount)
+
+    # Second bid placed
+    %{ end_prank = start_prank(ids.BUYER_1) %}
+    place_bid(AUCTION_ID, Uint256(2*amount, 0))
+    %{ end_prank() %}
+
+    erc20_helpers.assert_address_balance(auction_contract_address, 2*amount)
+    erc20_helpers.assert_address_balance(BUYER_1, 0)
 
     return()
 end
