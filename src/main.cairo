@@ -187,7 +187,7 @@ func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 ):
     alloc_locals
 
-    # TODO: make sure auction is still active
+    assert_active_auction(auction_id)
 
     let (caller_address) = get_caller_address()
     let (old_bid) = auction_highest_bid.read(auction_id)
