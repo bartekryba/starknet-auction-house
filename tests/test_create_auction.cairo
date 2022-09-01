@@ -25,12 +25,13 @@ func __setup__():
 end
 
 @external
-func test_auction_created{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_auction_created{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    ):
     alloc_locals
     let (auction_contract_address) = get_contract_address()
     let (current_block_number) = get_block_number()
-    let auction_lifetime = 100 # in blocks
-    let token_id = Uint256(0,1)
+    let auction_lifetime = 100  # in blocks
+    let token_id = Uint256(0, 1)
     let (erc20_address) = erc20_helpers.get_address()
     let (local erc721_address) = erc721_helpers.get_address()
     let expected_auction = AuctionData(
@@ -46,18 +47,16 @@ func test_auction_created{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     erc721_helpers.approve_for_auction(token_id)
     %{ end_prank() %}
 
-    %{
-        expect_events({"name": "auction_created", "data": [ids.AUCTION_ID, 0, 1, 100, 0, ids.auction_lifetime]})
-    %}
+    %{ expect_events({"name": "auction_created", "data": [ids.AUCTION_ID, 0, 1, 100, 0, ids.auction_lifetime]}) %}
 
     %{ end_prank = start_prank(ids.SELLER) %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = expected_auction.asset_id,
-        min_bid_increment = expected_auction.min_bid_increment,
-        erc20_address = expected_auction.erc20_address,
-        erc721_address = expected_auction.erc721_address,
-        lifetime = auction_lifetime,
+        asset_id=expected_auction.asset_id,
+        min_bid_increment=expected_auction.min_bid_increment,
+        erc20_address=expected_auction.erc20_address,
+        erc721_address=expected_auction.erc721_address,
+        lifetime=auction_lifetime,
     )
     %{ end_prank() %}
 
@@ -73,10 +72,12 @@ func test_auction_created{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
 end
 
 @external
-func test_create_auction_already_exists{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_create_auction_already_exists{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
 
-    let token_id = Uint256(0,1)
+    let token_id = Uint256(0, 1)
     let (local erc20_address) = erc20_helpers.get_address()
     let (local erc721_address) = erc721_helpers.get_address()
 
@@ -89,31 +90,33 @@ func test_create_auction_already_exists{syscall_ptr : felt*, pedersen_ptr : Hash
     %{ start_prank(ids.SELLER) %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = Uint256(0,1),
-        min_bid_increment = Uint256(100, 0),
-        erc20_address = erc20_address,
-        erc721_address = erc721_address,
-        lifetime = 100,
+        asset_id=Uint256(0, 1),
+        min_bid_increment=Uint256(100, 0),
+        erc20_address=erc20_address,
+        erc721_address=erc721_address,
+        lifetime=100,
     )
 
     %{ expect_revert(error_message="Auction 27432142756212590 already exists!") %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = Uint256(0,2),
-        min_bid_increment = Uint256(101, 0),
-        erc20_address = erc20_address,
-        erc721_address = erc721_address,
-        lifetime = 100,
+        asset_id=Uint256(0, 2),
+        min_bid_increment=Uint256(101, 0),
+        erc20_address=erc20_address,
+        erc721_address=erc721_address,
+        lifetime=100,
     )
 
-    return()
+    return ()
 end
 
 @external
-func test_create_auction_incorrect_erc_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_create_auction_incorrect_erc_address{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
 
-    let token_id = Uint256(0,1)
+    let token_id = Uint256(0, 1)
     let erc20_address = 0
     let (local erc721_address) = erc721_helpers.get_address()
 
@@ -127,21 +130,23 @@ func test_create_auction_incorrect_erc_address{syscall_ptr : felt*, pedersen_ptr
     %{ expect_revert(error_message="Invalid address 0") %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = Uint256(0,1),
-        min_bid_increment = Uint256(100, 0),
-        erc20_address = erc20_address,
-        erc721_address = erc721_address,
-        lifetime = 100,
+        asset_id=Uint256(0, 1),
+        min_bid_increment=Uint256(100, 0),
+        erc20_address=erc20_address,
+        erc721_address=erc721_address,
+        lifetime=100,
     )
 
-    return()
+    return ()
 end
 
 @external
-func test_create_auction_incorrect_bid_increment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_create_auction_incorrect_bid_increment{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
 
-    let token_id = Uint256(0,1)
+    let token_id = Uint256(0, 1)
     let (local erc20_address) = erc20_helpers.get_address()
     let (local erc721_address) = erc721_helpers.get_address()
 
@@ -155,21 +160,23 @@ func test_create_auction_incorrect_bid_increment{syscall_ptr : felt*, pedersen_p
     %{ expect_revert(error_message="Invalid minimal value for bid, has to be >= 0") %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = Uint256(0,1),
-        min_bid_increment = Uint256(0, 0),
-        erc20_address = erc20_address,
-        erc721_address = erc721_address,
-        lifetime = 100,
+        asset_id=Uint256(0, 1),
+        min_bid_increment=Uint256(0, 0),
+        erc20_address=erc20_address,
+        erc721_address=erc721_address,
+        lifetime=100,
     )
 
-    return()
+    return ()
 end
 
 @external
-func test_create_auction_negative_lifetime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_create_auction_negative_lifetime{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
 
-    let token_id = Uint256(0,1)
+    let token_id = Uint256(0, 1)
     let (local erc20_address) = erc20_helpers.get_address()
     let (local erc721_address) = erc721_helpers.get_address()
 
@@ -183,22 +190,23 @@ func test_create_auction_negative_lifetime{syscall_ptr : felt*, pedersen_ptr : H
     %{ expect_revert(error_message="Invalid lifetime, has to be > 0") %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = Uint256(0,1),
-        min_bid_increment = Uint256(100, 0),
-        erc20_address = erc20_address,
-        erc721_address = erc721_address,
-        lifetime = -1,
+        asset_id=Uint256(0, 1),
+        min_bid_increment=Uint256(100, 0),
+        erc20_address=erc20_address,
+        erc721_address=erc721_address,
+        lifetime=-1,
     )
 
-
-    return()
+    return ()
 end
 
 @external
-func test_create_auction_asset_does_not_exist{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_create_auction_asset_does_not_exist{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
 
-    let token_id = Uint256(0,1)
+    let token_id = Uint256(0, 1)
     let (local erc20_address) = erc20_helpers.get_address()
     let (local erc721_address) = erc721_helpers.get_address()
 
@@ -206,21 +214,23 @@ func test_create_auction_asset_does_not_exist{syscall_ptr : felt*, pedersen_ptr 
     %{ expect_revert(error_message="ERC721: token id does not exist") %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = Uint256(0,1),
-        min_bid_increment = Uint256(0, 100),
-        erc20_address = erc20_address,
-        erc721_address = erc721_address,
-        lifetime = 100,
+        asset_id=Uint256(0, 1),
+        min_bid_increment=Uint256(0, 100),
+        erc20_address=erc20_address,
+        erc721_address=erc721_address,
+        lifetime=100,
     )
 
-    return()
+    return ()
 end
 
 @external
-func test_create_auction_token_not_approved{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_create_auction_token_not_approved{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
 
-    let token_id = Uint256(0,1)
+    let token_id = Uint256(0, 1)
     let (local erc20_address) = erc20_helpers.get_address()
     let (local erc721_address) = erc721_helpers.get_address()
 
@@ -230,21 +240,23 @@ func test_create_auction_token_not_approved{syscall_ptr : felt*, pedersen_ptr : 
     %{ expect_revert(error_message="ERC721: either is not approved or the caller is the zero address") %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = Uint256(0,1),
-        min_bid_increment = Uint256(0, 100),
-        erc20_address = erc20_address,
-        erc721_address = erc721_address,
-        lifetime = 100,
+        asset_id=Uint256(0, 1),
+        min_bid_increment=Uint256(0, 100),
+        erc20_address=erc20_address,
+        erc721_address=erc721_address,
+        lifetime=100,
     )
 
-    return()
+    return ()
 end
 
 @external
-func test_create_auction_not_an_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_create_auction_not_an_owner{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
 
-    let token_id = Uint256(0,1)
+    let token_id = Uint256(0, 1)
     let (local erc20_address) = erc20_helpers.get_address()
     let (local erc721_address) = erc721_helpers.get_address()
 
@@ -258,13 +270,12 @@ func test_create_auction_not_an_owner{syscall_ptr : felt*, pedersen_ptr : HashBu
     %{ expect_revert(error_message="ERC721: transfer from incorrect owner") %}
     create_auction(
         auction_id=AUCTION_ID,
-        asset_id = Uint256(0,1),
-        min_bid_increment = Uint256(100, 0),
-        erc20_address = erc20_address,
-        erc721_address = erc721_address,
-        lifetime = 100,
+        asset_id=Uint256(0, 1),
+        min_bid_increment=Uint256(100, 0),
+        erc20_address=erc20_address,
+        erc721_address=erc721_address,
+        lifetime=100,
     )
 
-
-    return()
+    return ()
 end

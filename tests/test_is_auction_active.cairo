@@ -27,11 +27,8 @@ func __setup__():
 end
 
 @external
-func test_auction_does_not_exist{
-    syscall_ptr : felt*,
-    pedersen_ptr : HashBuiltin*,
-    range_check_ptr
-}() -> ():
+func test_auction_does_not_exist{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> ():
     %{ expect_revert(error_message="Last block was not initialized") %}
     is_auction_active(2137)
 
@@ -39,7 +36,8 @@ func test_auction_does_not_exist{
 end
 
 @external
-func test_auction_is_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_auction_is_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
@@ -59,6 +57,5 @@ func test_auction_is_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     let (is_active) = is_auction_active(AUCTION_ID)
     assert 0 = is_active
 
-    return()
+    return ()
 end
-

@@ -19,14 +19,14 @@ func __setup__():
 end
 
 @external
-func test_finalize_happy_case_no_bids{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_finalize_happy_case_no_bids{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
 
-    %{
-        expect_events({"name": "auction_finalized", "data": [ids.AUCTION_ID]})
-    %}
+    %{ expect_events({"name": "auction_finalized", "data": [ids.AUCTION_ID]}) %}
 
     auction_helpers.create_auction(minimal_bid, end_block)
     %{ roll(ids.end_block + 1) %}
@@ -38,22 +38,21 @@ func test_finalize_happy_case_no_bids{syscall_ptr : felt*, pedersen_ptr : HashBu
     let (bid) = auction_highest_bid.read(AUCTION_ID)
     assert bid = Bid(amount=Uint256(0, 0), address=0)
 
-    erc721_helpers.assert_has_token(SELLER, Uint256(0,1))
+    erc721_helpers.assert_has_token(SELLER, Uint256(0, 1))
 
     return ()
-
 end
 
 @external
-func test_finalize_happy_case_with_bids{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_finalize_happy_case_with_bids{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
     let amount = 100
 
-    %{
-        expect_events({"name": "auction_finalized", "data": [ids.AUCTION_ID]})
-    %}
+    %{ expect_events({"name": "auction_finalized", "data": [ids.AUCTION_ID]}) %}
 
     auction_helpers.create_auction(minimal_bid, end_block)
     auction_helpers.topped_bid(AUCTION_ID, BUYER_1, amount)
@@ -69,14 +68,15 @@ func test_finalize_happy_case_with_bids{syscall_ptr : felt*, pedersen_ptr : Hash
     let (bid) = auction_highest_bid.read(AUCTION_ID)
     assert bid = Bid(amount=minimal_bid, address=BUYER_1)
 
-    erc721_helpers.assert_has_token(BUYER_1, Uint256(0,1))
+    erc721_helpers.assert_has_token(BUYER_1, Uint256(0, 1))
     erc20_helpers.assert_address_balance(SELLER, 100)
 
     return ()
 end
 
 @external
-func test_finalize_still_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_finalize_still_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
@@ -93,7 +93,9 @@ func test_finalize_still_active{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*
 end
 
 @external
-func test_finalize_already_finalized{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_finalize_already_finalized{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let end_block = 100

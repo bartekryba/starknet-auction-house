@@ -13,11 +13,7 @@ from starkware.starknet.common.syscalls import (
 from openzeppelin.security.safemath.library import SafeUint256
 from openzeppelin.token.erc20.IERC20 import IERC20
 
-from src.data import (
-    AuctionData,
-    Bid,
-    is_bid_initialized,
-)
+from src.data import AuctionData, Bid, is_bid_initialized
 from src.constants import AUCTION_PROLONGATION_ON_BID
 from src.vault import vault
 from src.events import auction_created, bid_placed, auction_finalized
@@ -31,12 +27,7 @@ from src.assertions import (
     assert_last_block_initialized,
     assert_auction_not_finalized,
 )
-from src.storage import (
-    auctions,
-    finalized_auctions,
-    auction_highest_bid,
-    auction_last_block
-)
+from src.storage import auctions, finalized_auctions, auction_highest_bid, auction_last_block
 
 @view
 func get_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -114,7 +105,7 @@ end
 
 @external
 func create_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    auction_id: felt,
+    auction_id : felt,
     asset_id : Uint256,
     min_bid_increment : Uint256,
     erc20_address : felt,
@@ -150,14 +141,16 @@ func create_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
         auction_id=auction_id,
         asset_id=asset_id,
         min_bid_increment=min_bid_increment,
-        lifetime=lifetime
+        lifetime=lifetime,
     )
 
     return (auction_id)
 end
 
-func verify_outbid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id : felt, old_bid: Bid, new_bid: Bid):
-    alloc_locals # explain why it is needed
+func verify_outbid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    auction_id : felt, old_bid : Bid, new_bid : Bid
+):
+    alloc_locals  # explain why it is needed
     let (auction) = get_auction(auction_id)
     let (min_bid) = SafeUint256.add(old_bid.amount, auction.min_bid_increment)
 
@@ -170,7 +163,9 @@ func verify_outbid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     return ()
 end
 
-func prolong_auction_on_end{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id):
+func prolong_auction_on_end{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    auction_id
+):
     alloc_locals
 
     let (local current_block) = get_block_number()
@@ -228,10 +223,7 @@ func place_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 
     vault.deposit_bid(auction.erc20_address, new_bid)
 
-    bid_placed.emit(
-        auction_id=auction_id,
-        amount=amount
-    )
+    bid_placed.emit(auction_id=auction_id, amount=amount)
 
     return ()
 end
@@ -265,9 +257,7 @@ func finalize_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
         vault.transfer_asset(auction.erc721_address, auction.asset_id, auction.seller)
     end
 
-    auction_finalized.emit(
-        auction_id=auction_id
-    )
+    auction_finalized.emit(auction_id=auction_id)
 
     return ()
 end

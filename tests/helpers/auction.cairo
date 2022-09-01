@@ -8,9 +8,7 @@ from starkware.cairo.common.uint256 import Uint256
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 
-from src.main import (
-    place_bid,
-)
+from src.main import place_bid
 from src.storage import auctions, auction_last_block
 from src.data import AuctionData
 from src.vault import vault
@@ -21,14 +19,8 @@ from tests.helpers.constants import SELLER, AUCTION_ID
 
 namespace auction_helpers:
     # Tops up user account and places a bid, ensuring right balances at the end
-    func topped_bid{
-        syscall_ptr: felt*,
-        range_check_ptr,
-        pedersen_ptr : HashBuiltin*
-    }(
-        auction_id: felt,
-        user_address: felt,
-        amount: felt
+    func topped_bid{syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*}(
+        auction_id : felt, user_address : felt, amount : felt
     ):
         alloc_locals
         let (auction_contract_address) = get_contract_address()
@@ -45,16 +37,11 @@ namespace auction_helpers:
         return ()
     end
 
-    func create_auction{
-        syscall_ptr: felt*,
-        range_check_ptr,
-        pedersen_ptr : HashBuiltin*
-    }(
-        min_bid_increment : Uint256,
-        end_block : felt
+    func create_auction{syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*}(
+        min_bid_increment : Uint256, end_block : felt
     ):
         alloc_locals
-        let token_id = Uint256(0,1)
+        let token_id = Uint256(0, 1)
         let (local erc20_address) = erc20_helpers.get_address()
         let (local erc721_address) = erc721_helpers.get_address()
 
@@ -69,7 +56,7 @@ namespace auction_helpers:
         erc721_helpers.mint(SELLER, token_id)
 
         %{ end_prank = start_prank(ids.SELLER, ids.erc721_address) %}
-            erc721_helpers.approve_for_auction(token_id)
+        erc721_helpers.approve_for_auction(token_id)
         %{ end_prank() %}
 
         auctions.write(AUCTION_ID, auction)
@@ -77,16 +64,11 @@ namespace auction_helpers:
 
         vault.deposit_asset(erc721_address, token_id, SELLER)
 
-        return()
+        return ()
     end
 
-    func prepare_topped_bid{
-        syscall_ptr: felt*,
-        range_check_ptr,
-        pedersen_ptr : HashBuiltin*
-    }(
-        user_address : felt,
-        amount : felt
+    func prepare_topped_bid{syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*}(
+        user_address : felt, amount : felt
     ):
         erc20_helpers.top_up_address(user_address, amount)
         erc20_helpers.assert_address_balance(user_address, amount)

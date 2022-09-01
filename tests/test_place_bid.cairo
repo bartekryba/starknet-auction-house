@@ -10,12 +10,7 @@ from src.constants import AUCTION_PROLONGATION_ON_BID
 from tests.helpers.erc721 import erc721_helpers
 from tests.helpers.erc20 import erc20_helpers
 from tests.helpers.auction import auction_helpers
-from tests.helpers.constants import (
-    SELLER,
-    AUCTION_ID,
-    BUYER_1,
-    BUYER_2
-)
+from tests.helpers.constants import SELLER, AUCTION_ID, BUYER_1, BUYER_2
 
 @external
 func __setup__():
@@ -25,14 +20,13 @@ func __setup__():
 end
 
 @external
-func test_placed_bid_happy_case{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_placed_bid_happy_case{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
 
-    %{
-        expect_events({"name": "bid_placed", "data": [ids.AUCTION_ID, 100, 0]})
-    %}
+    %{ expect_events({"name": "bid_placed", "data": [ids.AUCTION_ID, 100, 0]}) %}
 
     auction_helpers.create_auction(minimal_bid, end_block)
     auction_helpers.topped_bid(AUCTION_ID, BUYER_1, 100)
@@ -44,11 +38,13 @@ func test_placed_bid_happy_case{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*
     assert current_highest_bid.amount = minimal_bid
     assert current_highest_bid.address = BUYER_1
 
-    return()
+    return ()
 end
 
 @external
-func test_placed_bid_happy_case_with_previous_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_placed_bid_happy_case_with_previous_bid{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
@@ -73,13 +69,15 @@ func test_placed_bid_happy_case_with_previous_bid{syscall_ptr : felt*, pedersen_
 
     erc20_helpers.assert_address_balance(BUYER_1, 100)
 
-    return()
+    return ()
 end
 
 # In this case user places two bids: one with half of money owned and then with all money owned.
 # It will fail if old bid is returned _after_ securing new bid.
 @external
-func test_user_placing_two_bids_in_a_row{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_user_placing_two_bids_in_a_row{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
     let (auction_contract_address) = get_contract_address()
     let minimal_bid = Uint256(50, 0)
@@ -93,8 +91,8 @@ func test_user_placing_two_bids_in_a_row{syscall_ptr : felt*, pedersen_ptr : Has
         expect_events({"name": "bid_placed", "data": [ids.AUCTION_ID, 400, 0]})
     %}
 
-    erc20_helpers.top_up_address(BUYER_1, 2*amount)
-    erc20_helpers.assert_address_balance(BUYER_1, 2*amount)
+    erc20_helpers.top_up_address(BUYER_1, 2 * amount)
+    erc20_helpers.assert_address_balance(BUYER_1, 2 * amount)
 
     erc20_helpers.approve_for_bid(BUYER_1, amount)
 
@@ -103,21 +101,23 @@ func test_user_placing_two_bids_in_a_row{syscall_ptr : felt*, pedersen_ptr : Has
     place_bid(AUCTION_ID, Uint256(amount, 0))
     %{ end_prank() %}
 
-    erc20_helpers.approve_for_bid(BUYER_1, 2*amount)
+    erc20_helpers.approve_for_bid(BUYER_1, 2 * amount)
 
     # Second bid placed
     %{ end_prank = start_prank(ids.BUYER_1) %}
-    place_bid(AUCTION_ID, Uint256(2*amount, 0))
+    place_bid(AUCTION_ID, Uint256(2 * amount, 0))
     %{ end_prank() %}
 
-    erc20_helpers.assert_address_balance(auction_contract_address, 2*amount)
+    erc20_helpers.assert_address_balance(auction_contract_address, 2 * amount)
     erc20_helpers.assert_address_balance(BUYER_1, 0)
 
-    return()
+    return ()
 end
 
 @external
-func test_placed_bid_not_enough_funds{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_placed_bid_not_enough_funds{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let end_block = 100
@@ -127,11 +127,12 @@ func test_placed_bid_not_enough_funds{syscall_ptr : felt*, pedersen_ptr : HashBu
     %{ expect_revert(error_message="ERC20: insufficient allowance") %}
     place_bid(AUCTION_ID, minimal_bid)
 
-    return()
+    return ()
 end
 
 @external
-func test_placed_bid_too_low{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_placed_bid_too_low{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let amount = 99
@@ -143,11 +144,13 @@ func test_placed_bid_too_low{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
     %{ expect_revert(error_message="New bid too low") %}
     place_bid(AUCTION_ID, Uint256(99, 0))
 
-    return()
+    return ()
 end
 
 @external
-func test_placed_bid_lower_than_highest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_placed_bid_lower_than_highest{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let buyer_balance = 100
@@ -164,11 +167,13 @@ func test_placed_bid_lower_than_highest{syscall_ptr : felt*, pedersen_ptr : Hash
     %{ expect_revert(error_message="New bid too low") %}
     place_bid(AUCTION_ID, minimal_bid)
 
-    return()
+    return ()
 end
 
 @external
-func test_placed_bid_auction_inactive{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_placed_bid_auction_inactive{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> ():
     alloc_locals
     let minimal_bid = Uint256(100, 0)
     let amount = 100
@@ -176,12 +181,12 @@ func test_placed_bid_auction_inactive{syscall_ptr : felt*, pedersen_ptr : HashBu
 
     auction_helpers.prepare_topped_bid(BUYER_1, amount)
     auction_helpers.create_auction(minimal_bid, end_block)
-    
+
     %{ roll(ids.end_block + 1) %}
 
     %{ start_prank(ids.BUYER_1) %}
     %{ expect_revert(error_message="Auction is not active") %}
     place_bid(AUCTION_ID, minimal_bid)
 
-    return()
+    return ()
 end

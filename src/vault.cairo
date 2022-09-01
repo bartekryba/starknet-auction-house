@@ -7,40 +7,33 @@ from openzeppelin.token.erc721.IERC721 import IERC721
 from openzeppelin.token.erc20.IERC20 import IERC20
 from src.data import Bid
 
-
 namespace vault:
     func deposit_asset{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        erc721_address: felt, asset_id : Uint256, source: felt,
+        erc721_address : felt, asset_id : Uint256, source : felt
     ):
         let (current_address) = get_contract_address()
 
         IERC721.transferFrom(
-            contract_address=erc721_address,
-            from_=source,
-            to=current_address,
-            tokenId=asset_id,
+            contract_address=erc721_address, from_=source, to=current_address, tokenId=asset_id
         )
 
         return ()
     end
 
     func transfer_asset{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        erc721_address: felt, asset_id : Uint256, target: felt
+        erc721_address : felt, asset_id : Uint256, target : felt
     ):
         let (address) = get_contract_address()
 
         IERC721.transferFrom(
-            contract_address=erc721_address,
-            from_=address,
-            to=target,
-            tokenId=asset_id,
+            contract_address=erc721_address, from_=address, to=target, tokenId=asset_id
         )
 
         return ()
     end
 
     func deposit_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        erc20_address: felt, bid : Bid
+        erc20_address : felt, bid : Bid
     ):
         let (auction_contract_address) = get_contract_address()
 
@@ -60,14 +53,12 @@ namespace vault:
     # Transfer tokens sent with a bid to target address.
     # In practice it is either seller (as payment for the asset) or the bidder (after a higher bid is placed).
     func transfer_bid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        erc20_address: felt, bid : Bid, target_address: felt
+        erc20_address : felt, bid : Bid, target_address : felt
     ):
         let (address) = get_contract_address()
 
         let (result) = IERC20.transfer(
-            contract_address=erc20_address,
-            recipient=target_address,
-            amount=bid.amount,
+            contract_address=erc20_address, recipient=target_address, amount=bid.amount
         )
 
         return ()

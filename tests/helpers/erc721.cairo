@@ -8,34 +8,26 @@ from openzeppelin.token.erc721.IERC721 import IERC721
 
 @contract_interface
 namespace Mintable:
-    func mint(to: felt, tokenId: Uint256):
+    func mint(to : felt, tokenId : Uint256):
     end
 end
 
 const INITIAL_OWNER = 'initial_owner'
 
 namespace erc721_helpers:
-
     # Approves control over a token for the contract
-    func approve_for_auction{syscall_ptr: felt*, range_check_ptr}(token_id: Uint256):
+    func approve_for_auction{syscall_ptr : felt*, range_check_ptr}(token_id : Uint256):
         let (erc721_address) = get_address()
         let (address) = get_contract_address()
-        IERC721.approve(
-            contract_address=erc721_address,
-            approved=address,
-            tokenId=token_id,
-        )
+        IERC721.approve(contract_address=erc721_address, approved=address, tokenId=token_id)
         return ()
     end
 
     # Makes sure address owns the token
-    func assert_has_token{syscall_ptr: felt*, range_check_ptr}(address: felt, token_id: Uint256):
+    func assert_has_token{syscall_ptr : felt*, range_check_ptr}(address : felt, token_id : Uint256):
         alloc_locals
         let (erc721_address) = get_address()
-        let (owner) = IERC721.ownerOf(
-            contract_address=erc721_address,
-            tokenId=token_id,
-        )
+        let (owner) = IERC721.ownerOf(contract_address=erc721_address, tokenId=token_id)
         local id = token_id.low
         with_attr error_message("{address} doesn't own token {id}"):
             assert owner = address
@@ -43,15 +35,11 @@ namespace erc721_helpers:
         return ()
     end
 
-    func mint{syscall_ptr: felt*, range_check_ptr}(address: felt, token_id: Uint256):
+    func mint{syscall_ptr : felt*, range_check_ptr}(address : felt, token_id : Uint256):
         let (contract_address) = get_address()
         %{ stop_prank = start_prank(ids.INITIAL_OWNER, ids.contract_address) %}
 
-        Mintable.mint(
-            contract_address=contract_address,
-            to=address,
-            tokenId=token_id,
-        )
+        Mintable.mint(contract_address=contract_address, to=address, tokenId=token_id)
 
         %{ stop_prank() %}
         return ()
@@ -71,7 +59,7 @@ namespace erc721_helpers:
     end
 
     # Returns address of contract deployed with deploy_contract
-    func get_address() -> (address: felt):
+    func get_address() -> (address : felt):
         tempvar address
         %{ ids.address = context.erc721_address %}
         return (address)

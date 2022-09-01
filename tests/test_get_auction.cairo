@@ -22,9 +22,7 @@ from tests.helpers.auction import auction_helpers
 
 @external
 func test_get_non_existing_auction{
-    syscall_ptr : felt*,
-    pedersen_ptr : HashBuiltin*,
-    range_check_ptr
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }() -> ():
     %{ expect_revert(error_message="Auction was not initalized") %}
     get_auction(2137)
@@ -33,9 +31,10 @@ func test_get_non_existing_auction{
 end
 
 @external
-func test_get_existing_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+func test_get_existing_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> ():
     alloc_locals
-    let token_id = Uint256(0,1)
+    let token_id = Uint256(0, 1)
 
     let auction = AuctionData(
         seller=SELLER,
@@ -50,5 +49,5 @@ func test_get_existing_auction{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
 
     data_helpers.assert_auctions_equal(auction, returned_auction)
 
-    return()
+    return ()
 end

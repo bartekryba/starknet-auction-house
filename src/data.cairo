@@ -16,8 +16,7 @@ struct AuctionData:
     member erc721_address : felt
 end
 
-
-func is_bid_initialized(bid: Bid) -> (result: felt):
+func is_bid_initialized(bid : Bid) -> (result : felt):
     # Initialized bid can't have address == 0
     if bid.address == 0:
         return (0)

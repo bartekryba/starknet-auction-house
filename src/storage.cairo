@@ -6,7 +6,7 @@ func auctions(auction_id : felt) -> (auction : AuctionData):
 end
 
 @storage_var
-func finalized_auctions(auction_id : felt) -> (is_closed: felt):
+func finalized_auctions(auction_id : felt) -> (is_closed : felt):
 end
 
 @storage_var

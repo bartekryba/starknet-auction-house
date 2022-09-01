@@ -25,12 +25,7 @@ from tests.helpers.erc721 import erc721_helpers
 from tests.helpers.data import data_helpers
 from tests.helpers.erc20 import erc20_helpers
 from tests.helpers.auction import auction_helpers
-from tests.helpers.constants import (
-    SELLER,
-    AUCTION_ID,
-    BUYER_1,
-    BUYER_2,
-)
+from tests.helpers.constants import SELLER, AUCTION_ID, BUYER_1, BUYER_2
 
 @external
 func test_two_bids{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
@@ -39,17 +34,17 @@ func test_two_bids{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     local buyer_2_bid = 2000
     let (auction_contract_address) = get_contract_address()
     let (current_block_number) = get_block_number()
-    let auction_lifetime = 100 # in blocks
-    let token_id = Uint256(0,1)
+    let auction_lifetime = 100  # in blocks
+    let token_id = Uint256(0, 1)
     let (local erc20_address) = erc20_helpers.get_address()
     let (local erc721_address) = erc721_helpers.get_address()
-    local expected_auction: AuctionData = AuctionData(
+    local expected_auction : AuctionData = AuctionData(
         seller=SELLER,
         asset_id=token_id,
         min_bid_increment=Uint256(100, 0),
         erc20_address=erc20_address,
         erc721_address=erc721_address,
-    )
+        )
     erc721_helpers.mint(SELLER, token_id)
 
     %{ end_prank = start_prank(ids.SELLER, ids.erc721_address) %}
@@ -75,7 +70,6 @@ func test_two_bids{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     # We'll place a bid in the last block to see if it is prolonged
     let (last_block) = auction_last_block.read(AUCTION_ID)
     %{ roll(ids.last_block) %}
-
 
     auction_helpers.topped_bid(AUCTION_ID, BUYER_1, buyer_1_bid)
 
