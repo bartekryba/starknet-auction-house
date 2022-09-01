@@ -180,7 +180,7 @@ func test_create_auction_negative_lifetime{syscall_ptr : felt*, pedersen_ptr : H
     %{ end_prank() %}
 
     %{ start_prank(ids.SELLER) %}
-    %{ expect_revert(error_message="Invalid lifetime, has to be >= 0") %}
+    %{ expect_revert(error_message="Invalid lifetime, has to be > 0") %}
     create_auction(
         auction_id=AUCTION_ID,
         asset_id = Uint256(0,1),
