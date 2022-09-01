@@ -10,6 +10,7 @@ from starkware.starknet.common.syscalls import (
     get_contract_address,
 )
 
+from openzeppelin.security.safemath.library import SafeUint256
 from openzeppelin.token.erc20.IERC20 import IERC20
 
 from src.data import (
@@ -145,12 +146,7 @@ end
 func verify_outbid{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(auction_id : felt, old_bid: Bid, new_bid: Bid):
     alloc_locals # explain why it is needed
     let (auction) = get_auction(auction_id)
-    let (min_bid, carry) = uint256_add(old_bid.amount, auction.min_bid_increment)
-
-    # Should never happen in normal case
-    with_attr error_message("Overflow in min_bid"):
-        assert carry = 0
-    end
+    let (min_bid) = SafeUint256.add(old_bid.amount, auction.min_bid_increment)
 
     let (higher_than_minimum) = uint256_le(min_bid, new_bid.amount)
 
